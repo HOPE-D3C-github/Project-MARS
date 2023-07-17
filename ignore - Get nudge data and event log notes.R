@@ -67,11 +67,11 @@ event_equipment_notes <- event %>% filter(EventType %in% eventtypes_tokeep) %>% 
   filter(!is.na(Grafana_ID))
 
 # Prep event log data to be merged with nugde data
-event <- event %>%
+event_4_nudge <- event %>%
   full_join(y = nudge_dat %>% select(SubjectID, day3_date),
              by = 'SubjectID')
 
-event <- event %>% 
+event_4_nudge <- event_4_nudge %>% 
   mutate(day9_date = day3_date + days(6)) %>% 
   filter(between(as_date(StartDate), day3_date, day9_date)) %>% 
   filter(!is.na(Note)) %>% 
@@ -98,9 +98,9 @@ nudge_dat_tall <- nudge_dat_tall %>%
   select(-c(day3_date, any_ema_3to9_non_compliant, nudge_date_txt))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Merge tall nudge data and event log
+# Merge tall nudge data and event_4_nudge log
 combined_nudge_event <- nudge_dat_tall %>% 
-  left_join(y = event, suffix = c("_nudge", "_event"),
+  left_join(y = event_4_nudge, suffix = c("_nudge", "_event"),
             by = c("SubjectID", "nudge_date" = "event_date"),
             multiple = "all")
 

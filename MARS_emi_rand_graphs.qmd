@@ -1,0 +1,64 @@
+---
+title: "MARS Randomized EMI Graphs"
+format: html
+editor: visual
+---
+
+## Load input data
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+
+source("paths.R")
+
+dat_w_meta <- readRDS(file.path(path_to_outputs_4_analysis, "matched_2_dec_pts_summ_metadata_local.RDS"))
+```
+
+## Prep data
+
+```{r}
+dat_w_meta <- dat_w_meta %>% group_by(mars_id) %>% 
+  mutate(n_non_EMI_rand = sum(is.na(A))) %>% 
+  arrange(desc(n_non_EMI_rand)) %>% 
+  ungroup() %>% 
+  mutate(EMI_rand = !is.na(A),
+         day_block = paste0(study_day_int, "_", block_number)
+         )
+```
+
+### Plot Figures
+
+```{r}
+
+if(F){id <- "mars_116"}
+
+xlabels <- rep(0:5, 8) # using block only with day printed above it
+
+
+for (id in unique(dat_w_meta$mars_id)){
+  plt <- dat_w_meta %>% filter(mars_id == id) %>% 
+    ggplot(aes(x = day_block, y = EMI_rand)) + 
+    geom_point(aes(color = EMI_rand)) + 
+    labs(title = id) +
+    ylab("EMI Randomized") +
+    xlab("Study Day and Block Number") +
+    scale_x_discrete(labels = xlabels) +
+    geom_vline(xintercept = unique(dat_w_meta$day_block)[seq(1, 48, 6)], linetype = 'dashed', alpha = 1, color = "grey") + 
+    geom_text(x = "2_2", y = 'TRUE', vjust = -5, label = "Day 2") +
+    geom_text(x = "3_2", y = 'TRUE', vjust = -5, label = "Day 3") +
+    geom_text(x = "4_2", y = 'TRUE', vjust = -5, label = "Day 4") +
+    geom_text(x = "5_2", y = 'TRUE', vjust = -5, label = "Day 5") +
+    geom_text(x = "6_2", y = 'TRUE', vjust = -5, label = "Day 6") +
+    geom_text(x = "7_2", y = 'TRUE', vjust = -5, label = "Day 7") +
+    geom_text(x = "8_2", y = 'TRUE', vjust = -5, label = "Day 8") +
+    geom_text(x = "9_2", y = 'TRUE', vjust = -5, label = "Day 9") +
+    theme_classic() +
+    theme(legend.position="none")
+  
+  print(plt)
+}
+
+
+```
