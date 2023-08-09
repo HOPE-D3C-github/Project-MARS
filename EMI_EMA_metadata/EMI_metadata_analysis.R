@@ -3,6 +3,7 @@
 #   STEP 1. Create Date variable for all observations in the decision points dataset
 #   STEP 2. Incorporate Other Data Streams
 #   STEP 3. Process for Final Summary Indicators and Save Datasets
+#   STEP 4. Save Datasets
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 library(dplyr)
 library(stringr)
@@ -11,7 +12,7 @@ library(readr)
 library(testthat)
 library(lubridate)
 
-source('paths.R')
+source('EMI_EMA_metadata/paths.R')
 
 matched_2_dec_pts <- readRDS(file.path(path_to_input_data_from_jamie, "dat_matched_to_decision_points.rds"))
 load(file = file.path(path_to_staged, "tailor_emi_ema_reports.RData"))
@@ -477,21 +478,23 @@ battery_w_blocks_wide <- battery_w_blocks_wide %>%
   mutate(entire_block_no_battery_data = percent_time_no_battery_data == 100,
          ninety_plus_perc_block_no_battery_data = percent_time_no_battery_data >= 90)
 
-battery_w_blocks_wide %>% count(entire_block_no_battery_data)
+if(F){
+  battery_w_blocks_wide %>% count(entire_block_no_battery_data)
+  
+  battery_w_blocks_wide %>% filter(entire_block_no_battery_data) %>% count(entire_block_no_battery_data, A) # 1202 out of 1574 non-randomized had entire block with no battery data
+  
+  # @TB: looking at battery before and after period of no battery data
 
-battery_w_blocks_wide %>% filter(entire_block_no_battery_data) %>% count(entire_block_no_battery_data, A) # 1202 out of 1574 non-randomized had entire block with no battery data
+  battery_w_blocks_wide %>% filter(entire_block_no_battery_data) %>% count(lag_battery_status, lead_battery_status)
 
-# @TB: looking at battery before and after period of no battery data
-battery_w_blocks_wide %>% filter(entire_block_no_battery_data) %>% count(lag_battery_status, lead_battery_status)
-
-battery_w_blocks_wide %>% count(A)
-
-battery_w_blocks_wide %>% filter(!is.na(percent_time_no_battery_data)) %>% count(entire_block_no_battery_data, A) # 53 more non-randomized that had no battery data for part of the block
-
-if(F){battery_w_blocks_wide %>% filter(!is.na(percent_time_no_battery_data)) %>% filter(!entire_block_no_battery_data & is.na(A)) %>% View}
-
-battery_w_blocks_wide %>% count(ninety_plus_perc_block_no_battery_data, entire_block_no_battery_data, A) # non randomized count is close to the randomized count for those with no battery data for 90-99.9% of the block time. Not as clear cut as those with no battery data for the entire block
-
+  battery_w_blocks_wide %>% count(A)
+  
+  battery_w_blocks_wide %>% filter(!is.na(percent_time_no_battery_data)) %>% count(entire_block_no_battery_data, A) # 53 more non-randomized that had no battery data for part of the block
+  
+  if(F){battery_w_blocks_wide %>% filter(!is.na(percent_time_no_battery_data)) %>% filter(!entire_block_no_battery_data & is.na(A)) %>% View}
+  
+  battery_w_blocks_wide %>% count(ninety_plus_perc_block_no_battery_data, entire_block_no_battery_data, A) # non randomized count is close to the randomized count for those with no battery data for 90-99.9% of the block time. Not as clear cut as those with no battery data for the entire block
+}
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # STEP 2C. Recombine data stream findings with updated "matched_2_dec_pts" data ----
@@ -733,91 +736,17 @@ matched_2_dec_pts_v10$no_battery_time_hours_categ <- factor(matched_2_dec_pts_v1
 if(F){matched_2_dec_pts_v10 %>% filter(study_day_int %in% 2:9) %>% filter(is.na(A) & battery_status_simple == "No Data - Entire Block") %>% 
   count(is.na(A), battery_status_simple, no_battery_time_hours_categ) %>% View}
 
-# Manual updates for equipment issues recorded
-matched_2_dec_pts_v10 <- matched_2_dec_pts_v10 %>% 
-  mutate(
-    eqpmnt_malf = case_when(
-      mars_id == 'mars_70' & (study_day_int < 3 | (study_day_int == 3 & block_number < 3)) ~ TRUE,  # this participant's phone was not working so they sent them a new one
-      T ~ FALSE
-    )
-  )
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Temporary - Exploratory for collapsing indicators ----
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# matched_2_dec_pts_summarized_metadata %>% select(mars_id, study_date, cluster_id, study_day_int, decision_point, block_number, block0_RECALC_start_mountain, block_start_mountain, block_end_mountain, 
-#                                  A, A_emi_report, last_condition_emi_report, A_system_log, battery_status, block_start_valid, block_end_valid, after_withdraw_date) %>% View
-# 
-# 
-# matched_2_dec_pts_summarized_metadata %>% filter(is.na(A)) %>% count(A, A_emi_report, last_condition_emi_report, A_system_log, battery_status, block_start_valid, block_end_valid, is_wakeup_default, after_withdraw_date) %>% View
-# 
-# matched_2_dec_pts_summarized_metadata %>% filter(is.na(A)) %>% count(A, after_withdraw_date, invalid_block_start = !block_start_valid, invalid_block_end = !block_end_valid, battery_status_simple, emi_report_missing_rand =is.na(A_emi_report), emi_conditions_clear =last_condition_emi_report) %>% 
-#   arrange(A, desc(after_withdraw_date), desc(invalid_block_start), desc(invalid_block_end), battery_status_simple, desc(emi_report_missing_rand), desc(emi_conditions_clear)) %>% 
-#   mutate(prop = n/sum(n)) %>% 
-#   View
-#   # clipr::write_clip()
-# 
-# 
-# matched_2_dec_pts_summarized_metadata %>% filter(is.na(A)) %>% count(A, after_withdraw_date, invalid_block_start = !block_start_valid, invalid_block_end = !block_end_valid, battery_status_simple, emi_report_missing_rand =is.na(A_emi_report), emi_conditions_clear =last_condition_emi_report, as_date(block_end_mountain) != study_date) %>% 
-#   arrange(A, desc(after_withdraw_date), desc(invalid_block_start), desc(invalid_block_end), battery_status_simple, desc(emi_report_missing_rand), desc(emi_conditions_clear)) %>% 
-#   mutate(prop = n/sum(n))
-# 
-# # as_date(block_end_mountain) != study_date
-# ###
-# if(F){
-#   matched_2_dec_pts_summarized_metadata %>% count(battery_status, A) %>% group_by(battery_status) %>% mutate(percent_by_battery_status = scales::percent(n/sum(n))) %>% View
-#   matched_2_dec_pts_summarized_metadata %>% count(battery_status, A) %>% group_by(battery_status) %>% mutate(percent_by_battery_status_not_all_shown = scales::percent(n/sum(n))) %>% filter(is.na(A)) 
-#   
-#   matched_2_dec_pts_summarized_metadata %>% filter(is.na(A) & battery_status == 'No Missing Data') %>% count(study_day_int)
-#   matched_2_dec_pts_summarized_metadata %>% filter(is.na(A) & battery_status == 'No Data - Entire Block') %>% count(study_day_int)
-#   
-# }
-# 
-# matched_2_dec_pts %>% group_by(cluster_id) %>% summarise(n_total = n(), 
-#                                                          n_non_randomized = sum(is.na(A)),
-#                                                          percent_non_randomized = scales::percent(n_non_randomized/n_total)
-#                                                          ) %>% clipr::write_clip()
-# 
-# matched_2_dec_pts %>% group_by(block_number) %>% summarise(n_total = n(), 
-#                                                          n_non_randomized = sum(is.na(A)),
-#                                                          percent_non_randomized = scales::percent(n_non_randomized/n_total)
-#                                                         ) %>% clipr::write_clip()
-# 
-# 
-# matched_2_dec_pts %>% filter(is.na(A)) %>% group_by(mars_id) %>% summarise(n_non_randomized = n()) %>% summary()
-# 
-# matched_2_dec_pts_v10 %>% filter(battery_status_simple == "No Data - Entire Block") %>% 
-#   count(lag_battery_status, lead_battery_status, battery_percent_change_bin) %>% 
-#   mutate(percent = round(n/sum(n)*100, digits = 3)) %>%  View
-# 
-# 
-# matched_2_dec_pts_v10 %>% filter(battery_status_simple == "No Data - Entire Block") %>% 
-#   filter(lag_battery_status == "10-100%" & lead_battery_status == "10-100%" & battery_percent_change_bin == "Increase") %>% View
-# 
-# # looking at gaps in battery data and gaps in system log data
-# matched_2_dec_pts_v10 %>% filter(!study_day_int %in% c(1,10)) %>% filter(is.na(A)) %>% count(battery_status_simple, any_syslog_records, ten_plus_syslog_records, any_scheduler_error, any_error) %>% View
-# 
-# matched_2_dec_pts_v10 %>% filter(is.na(A) & battery_status_simple == "No Data - Entire Block") %>% count(battery_status_simple, any_syslog_records, ten_plus_syslog_records)
-# 
-# matched_2_dec_pts_v10 %>% filter(is.na(A) & battery_status_simple == "No Data - Entire Block" & ten_plus_syslog_records) %>% View
-# 
-# 
-# matched_2_dec_pts_v10 %>% filter(is.na(A) & any_scheduler_error & battery_status_simple == "Some Missing Data")
-# 
-# system_log_joined_2_blocks %>% filter(mars_id == "mars_12" & study_day_int == 2 & block_number == 5) %>% View
-# system_log_joined_2_blocks %>% filter(mars_id == "mars_12" & study_day_int == 2 & block_number == 5) %>% count(V6)
-# 
-# system_log_joined_2_blocks %>% filter(mars_id == "mars_12" & study_day_int == 3 & block_number == 4) %>% View
-# 
-# matched_2_dec_pts_v10 %>% filter(!study_day_int %in% c(1,10)) %>% count(is.na(A), battery_status_simple, any_error) %>% mutate(percent = round(n/sum(n)*100, digits = 3)) %>% View
-# 
-# 
-# matched_2_dec_pts_v10 %>% filter(battery_status_simple == "No Data - Entire Block" & any_syslog_records) %>% View
-# 
+# # Manual updates for equipment issues recorded
+# matched_2_dec_pts_v10 <- matched_2_dec_pts_v10 %>% 
+#   mutate(
+#     eqpmnt_malf = case_when(
+#       mars_id == 'mars_70' & (study_day_int < 3 | (study_day_int == 3 & block_number < 3)) ~ TRUE,  # this participant's phone was not working so they sent them a new one
+#       T ~ FALSE
+#     )
+#   )
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# STEP 4. Save Datasets
+# STEP 4. Save Datasets ----
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 saveRDS(matched_2_dec_pts_v10,
@@ -825,8 +754,7 @@ saveRDS(matched_2_dec_pts_v10,
 
 matched_2_dec_pts_summarized_metadata <- matched_2_dec_pts_v10 %>% 
   select(all_of(colnames(matched_2_dec_pts)), study_day_int, study_date, olson_calc, block0_RECALC_start_mountain, block_start_mountain, block_end_mountain, block_start_valid, block_end_valid,
-         battery_status, battery_status_simple, A_emi_report, last_condition_emi_report, A_system_log, after_withdraw_date, any_error, no_battery_time_hours_categ, eqpmnt_malf)
+         battery_status, battery_status_simple, A_emi_report, last_condition_emi_report, A_system_log, after_withdraw_date, any_error, no_battery_time_hours_categ)
 
 saveRDS(matched_2_dec_pts_summarized_metadata,
         file = file.path(path_to_staged, "matched_2_dec_pts_summarized_metadata.RDS"))
-

@@ -2,7 +2,7 @@ library(tidyverse)
 library(dplyr)
 library(lubridate)
 
-source("paths.R")
+source("EMI_EMA_metadata/paths.R")
 
 event <- readRDS(file.path(path_to_input_data_RSR_visit, "event_log.rds"))
 

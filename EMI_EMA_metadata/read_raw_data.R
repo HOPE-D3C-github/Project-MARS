@@ -8,7 +8,7 @@ library(gtools)
 library(stringr)
 library(lubridate)
 
-source("paths.R")
+source("EMI_EMA_metadata/paths.R")
 
 # Participant IDs 
 ema_subfolder_names_all <- list.files(path_to_input_data_from_MD2K)
@@ -122,7 +122,7 @@ emi_report <- bind_rows(all_emi_report_files)
 list_df_raw <- list()
 
 # Specify data stream of interest
-this_string <- "emi_report.csv"
+this_string <- "ema_report.csv"
 
 for(i in 1:length(ids_mars)){
   this_id <- ids_mars[i]
@@ -326,3 +326,55 @@ for(i in 1:length(ids_mars)){
 system_log <- bind_rows(list_df_raw)
 
 save(system_log, file = file.path(path_to_staged, "system_log.RData"))
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Conditions file: ----
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+list_df_raw <- list()
+
+# Specify data stream of interest
+this_string <- "CONDITION--org.md2k.scheduler.csv.bz2"
+
+for(i in 1:length(ids_mars)){
+  this_id <- ids_mars[i]
+  print(this_id)
+  
+  # List all file names within folder corresponding to this_id
+  all_files <- list.files(file.path(path_to_input_data_from_MD2K, this_id))
+  # Pick out file names related to data stream of interest
+  idx <- match(x=this_string, table=all_files)
+  # Pick out corresponding files
+  this_file <- all_files[idx]
+  
+  # Read file if it exists for given participant
+  if(!is.na(this_file)){
+    # Simply using read.csv's default value for sep (the comma: ",") will result in
+    # some entries being viewed as corresponding to two cells when they should 
+    # correspond to only one cell. This can happen, for example, 
+    df_raw <- read.csv(file.path(path_to_input_data_from_MD2K, this_id, this_file), 
+                       header = FALSE # STATUS files do not contain column names
+    )  
+    # Add column to record participant ID
+    df_raw <- as.data.frame(df_raw) %>% 
+      mutate(mars_id = this_id) %>% 
+      select(mars_id, everything())
+    
+    #deduplicate entirely duplicated rows
+    df_raw <- df_raw[!duplicated(df_raw),]
+    
+    # Remove records without a valid timestamp and reformat V1 as a double
+    df_raw <- df_raw %>% filter(!is.na(V2)) %>% 
+      mutate(V1 = as.double(V1))
+    
+    # Add df_raw to collection
+    list_df_raw <- append(list_df_raw, list(df_raw))
+  }else{
+    next
+  }
+}
+
+conditions <- bind_rows(list_df_raw)
+
+save(conditions, file = file.path(path_to_staged, "conditions.RData"))

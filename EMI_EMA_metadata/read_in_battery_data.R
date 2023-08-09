@@ -12,7 +12,7 @@ library(tictoc)
 library(stringr)
 library(gtools)
 
-source("paths.R")
+source("EMI_EMA_metadata/paths.R")
 
 tic("Main")
 # ------------------------------------------------------------------------------
@@ -52,7 +52,7 @@ this_file <- "BATTERY--org.md2k.phonesensor--PHONE.csv.bz2"
 #start_time <- Sys.time()
 for(i in 1: length(ids_pt)){
   this_id <- ids_pt[i]
-  
+  print(this_id)
   
   tmp <- try(read.csv(file.path(path_to_input_data_from_MD2K, this_id, this_file), 
                       header = FALSE, 
