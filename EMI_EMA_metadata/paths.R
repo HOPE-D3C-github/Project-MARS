@@ -2,7 +2,9 @@ library(dplyr)
 library(stringr)
 
 # pre_box <- getwd() %>% str_remove("Box.+")
-pre_box <- getwd() %>% str_remove("Documents.+")
+# pre_box <- getwd() %>% str_remove("Documents.+")
+
+pre_box <- getwd() %>% str_remove("OneDrive.+|Documents.+|Box.+")
 
 # Inputs
 path_to_input_data_from_MD2K <- paste0(pre_box, "Box/mhealth_data_management/MARS/MARS - data sharing/mars_ema_raw_datashare_20230509")

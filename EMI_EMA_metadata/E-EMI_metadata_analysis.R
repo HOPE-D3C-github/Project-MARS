@@ -27,6 +27,7 @@ battery_binned_all <- battery_binned_all %>%
 load(file = file.path(path_to_staged, "wakeup_times_set.RData"))
 load(file = file.path(path_to_staged, "system_log.RData"))
 pt_withdrawn_date <- readRDS(file = file.path(path_to_staged, "pt_withdrawn_date.RDS"))
+load(file = file.path(path_to_staged, "conditions.RData"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # STEP 1. Create Date variable for all observations in the decision points dataset ----
@@ -269,6 +270,63 @@ remove(matched_2_dec_pts_v2, matched_2_dec_pts_v3, matched_2_dec_pts_v4)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # STEP 2. Incorporate Other Data Streams----
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# # STEP 2A. EMI Conditions - processed from Conditions file ----
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# conditions <- conditions %>% 
+#   filter(str_detect(V4, "EMI-RANDOM")) %>% 
+#   filter((V5 == "condition" & V6 == "is_privacy_on()==false && is_driving(now()-time_offset(00:05:00); now())==false") | V5 %in% c("is_driving", "is_privacy_on"))
+# 
+# conditions <- conditions %>% mutate(V3_substr = substring(V3, 1, 19), .after = V3)
+# 
+# conditions_wide <- conditions %>% 
+#   group_by(mars_id, V3_substr) %>% 
+#   summarise(
+#     unixts = V1[1],
+#     condition_raw = V7[max(which(V5=="condition"))],
+#     is_driving_raw = V7[max(which(V5=="is_driving"))],
+#     is_privacy_on_raw = V7[max(which(V5=="is_privacy_on"))]
+#   ) %>% 
+#   ungroup() %>% 
+#   mutate(
+#     condition = as.logical(as.numeric(condition_raw)),
+#     is_driving = ifelse(is.na(is_driving_raw), NA_character_, str_split_fixed(is_driving_raw, " ", 2)[,1]), 
+#     is_privacy_on = as.logical(as.numeric(ifelse(is.na(is_privacy_on_raw), NA_character_, str_split_fixed(is_privacy_on_raw, " ", 2)[,1])))) %>% 
+#   mutate(
+#     is_driving = case_when(
+#       is_driving %in% c("0", "false") ~ FALSE,
+#       is_driving == "true" ~ TRUE,
+#       T ~ NA)) %>% 
+#   mutate(A = NA_character_)
+# 
+# # Add datetime variables
+# conditions_wide <- conditions_wide %>% mutate(cond_hrts_mountain = as_datetime(unixts/1000, tz = "America/Denver"), .before = unixts)
+# conditions_wide <- conditions_wide %>% select(-c(V3_substr, condition_raw, is_driving_raw, is_privacy_on_raw))
+# 
+# 
+# test <- matched_2_dec_pts_v5 %>% 
+#   left_join(y = conditions_wide,
+#             by = join_by(mars_id, between(y$cond_hrts_mountain, x$block_start_mountain, x$block_end_mountain), A))
+# 
+# test_2 <- test %>% 
+#   group_by(mars_id, study_day_int, block_number) %>% 
+#   mutate(any_condition_false = if_else(all(is.na(condition)), NA, any(!condition, na.rm = T)), 
+#          any_is_driving = any(is_driving, na.rm = T),
+#          any_is_privacy_on = any(is_privacy_on, na.rm = T)
+#   ) %>% 
+#   filter(row_number()==n()) %>% 
+#   select(-c(condition, is_driving, is_privacy_on)) %>% 
+#   ungroup() %>% 
+#   mutate(condition_summ = case_when(
+#     !is.na(A) ~ NA_character_,
+#     is.na(any_condition_false) ~ "no condition data",
+#     any_is_driving & any_is_privacy_on ~ "driving and privacy mode",
+#     any_is_driving ~ "driving",
+#     any_is_privacy_on ~ "privacy mode",
+#     !any_condition_false ~ "clear",
+#     T ~ NA_character_
+#   ))
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # STEP 2A. EMI Report. Processed from MD2K ----
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -736,25 +794,56 @@ matched_2_dec_pts_v10$no_battery_time_hours_categ <- factor(matched_2_dec_pts_v1
 if(F){matched_2_dec_pts_v10 %>% filter(study_day_int %in% 2:9) %>% filter(is.na(A) & battery_status_simple == "No Data - Entire Block") %>% 
   count(is.na(A), battery_status_simple, no_battery_time_hours_categ) %>% View}
 
-# # Manual updates for equipment issues recorded
-# matched_2_dec_pts_v10 <- matched_2_dec_pts_v10 %>% 
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# STEP 4. Prep EMI rand summary variable ----
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# matched_2_dec_pts_v11 <- matched_2_dec_pts_v10 %>% 
 #   mutate(
-#     eqpmnt_malf = case_when(
-#       mars_id == 'mars_70' & (study_day_int < 3 | (study_day_int == 3 & block_number < 3)) ~ TRUE,  # this participant's phone was not working so they sent them a new one
-#       T ~ FALSE
+#     emi_non_rand_summary = case_when(
+#       !is.na(A) ~ NA_character_,        # no values for blocks with an EMI randomization
+#       # all below are for non-randomized EMI
+#       after_withdraw_date ~ "After participant withdrew",   # block occurred after the date when the participant withdrew 
+#       !block_start_valid ~ "Invalid block start time",    # block could never even begin due to the next day's block 1 starting
+#       !last_condition_emi_report ~ "Driving",      # all records of EMI conditions being false coincided with driving - not privacy mode
+#       any_error | last_condition_emi_report ~ "Software error",       # log file recorded an error associated to this EMI block or the conditions log indicated conditions were true but EMI rand was not recorded and used
+#       !any_syslog_records & battery_status_simple != "No Data - Entire Block" ~ "No log data but sufficient battery",  # No log data during block despite sufficient battery in the phone
+#       battery_status_simple == "No Data - Entire Block" ~ "No log data and no battery data",  
+#       !block_end_valid ~ "Invalid block end time",
+#       T ~ "Undetermined"
 #     )
 #   )
 
+matched_2_dec_pts_v11 <- matched_2_dec_pts_v10 %>% 
+  mutate(
+    emi_non_rand_summary = case_when(
+      !is.na(A) ~ NA_character_,        # no values for blocks with an EMI randomization
+      # all below are for non-randomized EMI
+      after_withdraw_date ~ "After participant withdrew",   # block occurred after the date when the participant withdrew 
+      !block_start_valid | !block_end_valid ~ "Block 1 on study day was programmed to start after 10am",    # block could never even begin due to the next day's block 1 starting
+      !last_condition_emi_report ~ "Driving",      # all records of EMI conditions being false coincided with driving - not privacy mode
+      any_error | last_condition_emi_report ~ "Software error",       # log file recorded an error associated to this EMI block or the conditions log indicated conditions were true but EMI rand was not recorded and used
+      battery_status_simple == "No Data - Entire Block" ~ "No log data and no battery data",  
+      T ~ "Undetermined"
+    )
+  )
+
+if(F){matched_2_dec_pts_v11 %>% count(is.na(A), emi_non_rand_summary)}
+
+
+
+if(F){matched_2_dec_pts_v11 %>% filter(is.na(A)) %>% count(emi_non_rand_summary) %>% mutate(percent_n = round(n/sum(n)*100, digits = 1)) %>% arrange(desc(n))}
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# STEP 4. Save Datasets ----
+# STEP 5. Save Datasets ----
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-saveRDS(matched_2_dec_pts_v10,
+saveRDS(matched_2_dec_pts_v11,
         file = file.path(path_to_staged, "matched_2_dec_pts_full_metadata.RDS"))
 
-matched_2_dec_pts_summarized_metadata <- matched_2_dec_pts_v10 %>% 
+matched_2_dec_pts_summarized_metadata <- matched_2_dec_pts_v11 %>%
   select(all_of(colnames(matched_2_dec_pts)), study_day_int, study_date, olson_calc, block0_RECALC_start_mountain, block_start_mountain, block_end_mountain, block_start_valid, block_end_valid,
-         battery_status, battery_status_simple, A_emi_report, last_condition_emi_report, A_system_log, after_withdraw_date, any_error, no_battery_time_hours_categ)
+         battery_status, battery_status_simple, last_condition_emi_report, after_withdraw_date, any_error, no_battery_time_hours_categ, emi_non_rand_summary)
 
 saveRDS(matched_2_dec_pts_summarized_metadata,
         file = file.path(path_to_staged, "matched_2_dec_pts_summarized_metadata.RDS"))

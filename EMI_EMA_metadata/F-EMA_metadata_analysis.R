@@ -18,7 +18,7 @@ library(lubridate)
 
 source('EMI_EMA_metadata/paths.R')
 
-dat_main <- readRDS(file.path(path_to_staged, "matched_2_dec_pts_summarized_metadata.RDS"))
+dat_main <- readRDS(file.path(path_to_staged, "matched_2_dec_pts_summarized_metadata.RDS")) 
 
 load(file.path(path_to_staged, "tailor_emi_ema_reports.RData"))
 remove(emi_report)
