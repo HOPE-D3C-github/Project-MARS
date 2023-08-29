@@ -8,7 +8,7 @@ library(gtools)
 library(stringr)
 library(lubridate)
 
-source("EMI_EMA_metadata/paths.R")
+source("paths.R")
 
 # Participant IDs 
 ema_subfolder_names_all <- list.files(path_to_input_data_from_MD2K)

@@ -12,7 +12,7 @@ library(readr)
 library(testthat)
 library(lubridate)
 
-source('EMI_EMA_metadata/paths.R')
+source('paths.R')
 
 matched_2_dec_pts <- readRDS(file.path(path_to_input_data_from_jamie, "dat_matched_to_decision_points.rds"))
 load(file = file.path(path_to_staged, "tailor_emi_ema_reports.RData"))

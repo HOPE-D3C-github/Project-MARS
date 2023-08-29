@@ -9,7 +9,7 @@ library(purrr)
 library(haven)
 library(lubridate)
 
-source('EMI_EMA_metadata/paths.R')
+source('paths.R')
 
 matched_2_dec_pts_summ_metadata <- readRDS(file.path(path_to_staged, 'matched_2_dec_pts_summarized_metadata_plus_EMA.RDS'))  # contains date time vars
 ema_responses <- readRDS(file.path(path_to_input_data_from_jamie, 'dat_conventional_long_format_ema_responses.rds')) # contains date time vars

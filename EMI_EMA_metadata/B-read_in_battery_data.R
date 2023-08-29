@@ -12,7 +12,7 @@ library(tictoc)
 library(stringr)
 library(gtools)
 
-source("EMI_EMA_metadata/paths.R")
+source("paths.R")
 
 tic("Main")
 # ------------------------------------------------------------------------------

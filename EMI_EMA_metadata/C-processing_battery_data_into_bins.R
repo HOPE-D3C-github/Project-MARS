@@ -10,7 +10,7 @@ library(lubridate)
 library(tidyr)
 library(purrr)
 
-source("EMI_EMA_metadata/paths.R")
+source("paths.R")
 
 load(file.path(path_to_staged, "battery_data_mars.RData"))
 

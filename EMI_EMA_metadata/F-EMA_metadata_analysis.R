@@ -16,7 +16,7 @@ library(readr)
 library(testthat)
 library(lubridate)
 
-source('EMI_EMA_metadata/paths.R')
+source('paths.R')
 
 dat_main <- readRDS(file.path(path_to_staged, "matched_2_dec_pts_summarized_metadata.RDS")) 
 
