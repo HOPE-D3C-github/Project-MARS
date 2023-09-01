@@ -32,12 +32,7 @@ data_raw <- exportRecordsTyped(con, cast=list(radio = castRaw,
                                               checkbox = castRaw,
                                               yesno = castRaw,
                                               dropdown = castRaw)) %>% as_tibble()
-# [TO DO]: add /mhealth_data_management to filepath once added to folder
-if(T) {
-  cxwalk <- read_rds('../MARS/MARS - data sharing/mars_visit_raw_datashare_20230510/redcap_crosswalk.rds')
-} else {
-  cxwalk <- read_rds('../mhealth_data_management/MARS/MARS - data sharing/mars_visit_raw_datashare_20230510/redcap_crosswalk.rds')
-}
+cxwalk <- read_rds('../mhealth_data_management/MARS/MARS - data sharing/mars_visit_raw_datashare_20230510/redcap_crosswalk.rds')
 id_check <- read_rds("dat_visit_dates_V1_only.rds")
   
 # basic data cleaning ----------------------------------------------------------
@@ -1212,8 +1207,7 @@ data_clean35 <- data_clean34 %>%
              newchoices = "Mean of uclals_1-uclals_6",
              prop_nonmiss = 0.7)
 
-### 36. PAQ [? - B] ----
-# [TO DO] have Brian, Tony, someone, review this code
+### 36. PAQ ----
 source("paq_clean.R")
 
 data_clean36 <- data_clean35 %>%
@@ -1652,12 +1646,3 @@ for (i in 1:length(datasets_list)) {
 }
 
 saveWorkbook(codebook, "codebook.xlsx", overwrite=TRUE)
-
-###@ellen: this is really really fantastic work. you're programming at a very high level right of the bat and you have a lot of things very automated. nice work!!!
-
-# documentation ----------------------------------------------------------------
-# [TO DO]: after done ironing out, reach out to Tony about adding to Git/renv project
-
-# value labels in SAS ----------------------------------------------------------
-
-###create value labels in SAS code -- optional thing to circle back to.
