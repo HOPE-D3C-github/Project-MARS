@@ -14,7 +14,7 @@ library(lubridate)
 
 source('paths.R')
 
-matched_2_dec_pts <- readRDS(file.path(path_to_input_data_from_jamie, "dat_matched_to_decision_points.rds"))
+matched_2_dec_pts <- readRDS(file.path(path_to_input_data_from_jamie, "dat_matched_to_decision_points.rds")) %>% mutate(block_number = decision_point - (6*(cluster_id - 1)) - 1)
 load(file = file.path(path_to_staged, "tailor_emi_ema_reports.RData"))
 load(file.path(path_to_staged, "wakeup_info.RData")) 
 wakeup_info <- wakeup_info %>% mutate(wakeup_time_hrts_mtn = as_datetime(V1/1000, tz = "America/Denver"))
@@ -200,9 +200,9 @@ cw_date_dayint_v4 <- cw_date_dayint_v3 %>%
 
 cw_date_dayint_v5 <- cw_date_dayint_v4 %>% 
   mutate(study_day_wakeup_time = coalesce(ts_wakeup_mountain, set_wakeup_time_hrts_mtn, wakeup_default_calc)) %>% 
-  mutate(study_day_wakeup_time = case_when(
-    mars_id == "mars_52" & study_date == as_date('2022-03-23') ~ as_datetime('2022-03-22 00:08:00', tz = 'America/Denver'),
-    T ~ study_day_wakeup_time)) %>% 
+  # mutate(study_day_wakeup_time = case_when(
+  #   mars_id == "mars_52" & study_date == as_date('2022-03-23') ~ as_datetime('2022-03-22 00:08:00', tz = 'America/Denver'),
+  #   T ~ study_day_wakeup_time)) %>% 
   mutate(block0_RECALC_start_mountain = study_day_wakeup_time + minutes(30)) %>% 
   rename(ts_wakeup_saved_mountain_recalc = ts_wakeup_saved_mountain, ts_wakeup_mountain_recalc = ts_wakeup_mountain) %>% 
   select(-c(day_int, is_wakeup_default, is_wakeup_adjusted, olson))
@@ -215,7 +215,8 @@ matched_2_dec_pts_v3 <- matched_2_dec_pts_v2 %>%
   full_join(y = cw_date_dayint_v5, 
             by = c("mars_id", "study_day_int")) %>% 
   relocate(
-    cluster_id, study_day_int, study_date, block_number, block0_start_mountain_calculated, A, .after = mars_id) 
+    cluster_id, study_day_int, study_date, block_number, #block0_start_mountain_calculated, 
+    A, .after = mars_id) 
   
 matched_2_dec_pts_v3 %>% count(is.na(block0_RECALC_start_mountain))
 
@@ -246,9 +247,9 @@ matched_2_dec_pts_v5 <- matched_2_dec_pts_v4 %>%
     block_end_valid = case_when(
       !next_study_day_block0_isNA ~ (block0_RECALC_start_mountain + ((hours(2) + minutes(20))*(block_number + 1L))) < next_study_day_block0_start_mtn - minutes(30),
       T ~ T),
-    block_start_mountain = case_when(
+    block_start_mountain_calc = case_when(
       block_start_valid ~ block0_RECALC_start_mountain + ((hours(2) + minutes(20))*block_number)),
-    block_end_mountain = case_when(
+    block_end_mountain_calc = case_when(
       block_end_valid ~ block0_RECALC_start_mountain + ((hours(2) + minutes(20))*(block_number + 1L)),
       !block_end_valid & block_start_valid ~ next_study_day_block0_start_mtn), 
     .after = block_number) %>% 
@@ -258,9 +259,9 @@ matched_2_dec_pts_v5 <- matched_2_dec_pts_v4 %>%
 # STEP 1G. Create backbone crosswalk of key variables of participant, day, and block to be used when analyzing the metadata ----
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 cw_pt_date_blocks <- matched_2_dec_pts_v5 %>% 
-  select(mars_id, study_date, study_day_int, block_number, block_start_mountain, block_end_mountain, A)
+  select(mars_id, study_date, study_day_int, block_number, block_start_mountain_calc, block_end_mountain_calc, A)
 
-cw_pt_date_blocks %>% count(is.na(block_start_mountain), is.na(A))
+cw_pt_date_blocks %>% count(is.na(block_start_mountain_calc), is.na(A))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # END of Step 1. ----
@@ -306,7 +307,7 @@ remove(matched_2_dec_pts_v2, matched_2_dec_pts_v3, matched_2_dec_pts_v4)
 # 
 # test <- matched_2_dec_pts_v5 %>% 
 #   left_join(y = conditions_wide,
-#             by = join_by(mars_id, between(y$cond_hrts_mountain, x$block_start_mountain, x$block_end_mountain), A))
+#             by = join_by(mars_id, between(y$cond_hrts_mountain, x$block_start_mountain_calc, x$block_end_mountain_calc), A))
 # 
 # test_2 <- test %>% 
 #   group_by(mars_id, study_day_int, block_number) %>% 
@@ -339,7 +340,7 @@ emi_report <- emi_report %>%
 # Interval Join the emi report data to the pt/day/block crosswalk
 emi_w_blocks <- full_join(x = emi_report %>% rename(mars_id = participant_id) %>% mutate(in_emi_rpt = T),
                              y = cw_pt_date_blocks %>% mutate(in_pt_blocks = T),
-                             by = join_by(mars_id, between(human_readable_time_try, block_start_mountain, block_end_mountain)))
+                             by = join_by(mars_id, between(human_readable_time_try, block_start_mountain_calc, block_end_mountain_calc)))
 
 emi_w_blocks <- emi_w_blocks %>% relocate(all_of(colnames(cw_pt_date_blocks)), .before = everything())
 
@@ -366,8 +367,8 @@ emi_w_blocks %>% filter(is.na(A) & in_pt_blocks) %>% group_by(mars_id, study_day
 
 # Looking further, it may be that the phone stopped for a given study day after midnight. Need to examine closer
 
-matched_2_dec_pts_v6 <- matched_2_dec_pts_v5 %>% mutate(start_block_date = as_date(block_start_mountain),
-                                end_block_date = as_date(block_end_mountain),
+matched_2_dec_pts_v6 <- matched_2_dec_pts_v5 %>% mutate(start_block_date = as_date(block_start_mountain_calc),
+                                end_block_date = as_date(block_end_mountain_calc),
                                 start_block_different_date = start_block_date != study_date,
                                 end_block_different_date = end_block_date != study_date,
                                 .after = study_date) 
@@ -378,7 +379,7 @@ matched_2_dec_pts_v6 %>%
 matched_2_dec_pts_v6 %>% filter(is.na(A)) %>% 
   count(start_block_different_date, end_block_different_date, A)   # most missing randomizations are not a result of blocks on the next day, but some may be ~ 90+87?
 
-if(F){matched_2_dec_pts_v6 %>% filter(is.na(block_start_mountain)) %>% View} # 78 have no day start data. can check log for any data recorded on those days
+if(F){matched_2_dec_pts_v6 %>% filter(is.na(block_start_mountain_calc)) %>% View} # 78 have no day start data. can check log for any data recorded on those days
 
 if(F){matched_2_dec_pts_v6 %>% filter(!start_block_different_date & !end_block_different_date & is.na(A)) %>% View}
 
@@ -436,7 +437,7 @@ battery_binned_all <- battery_binned_all %>% rename(mars_id = participant_id,
 
 
 battery_w_blocks <- right_join(x = battery_binned_all, y = cw_pt_date_blocks,
-            by = join_by(mars_id, overlaps(battery_range_start_hrts_mtn, battery_range_end_hrts_mtn, block_start_mountain, block_end_mountain)))
+            by = join_by(mars_id, overlaps(battery_range_start_hrts_mtn, battery_range_end_hrts_mtn, block_start_mountain_calc, block_end_mountain_calc)))
   
 
 if(F){battery_w_blocks %>% group_by(mars_id, study_day_int, block_number) %>% 
@@ -462,9 +463,9 @@ if(F){battery_w_blocks %>%
 battery_w_blocks_v2 <- battery_w_blocks %>% 
   rowwise() %>% 
   mutate(
-    total_block_time = difftime(block_end_mountain, block_start_mountain, units = "mins"),
+    total_block_time = difftime(block_end_mountain_calc, block_start_mountain_calc, units = "mins"),
     time_battery_status_in_block = case_when(
-      !is.na(block_start_mountain) ~ difftime( min(battery_range_end_hrts_mtn, block_end_mountain) , max(battery_range_start_hrts_mtn, block_start_mountain), units = "mins"),
+      !is.na(block_start_mountain_calc) ~ difftime( min(battery_range_end_hrts_mtn, block_end_mountain_calc) , max(battery_range_start_hrts_mtn, block_start_mountain_calc), units = "mins"),
       T ~ NA)) %>% 
   ungroup() %>% 
   filter(!is.na(study_date)) # remove battery data that is out of range from the study day/block intervals
@@ -559,9 +560,9 @@ if(F){
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 matched_2_dec_pts_v7 <- matched_2_dec_pts_v6 %>% 
   full_join(y = battery_w_blocks_wide,
-            by = join_by(mars_id, study_date, study_day_int, block_number, block_start_mountain, block_end_mountain, A)) %>% 
+            by = join_by(mars_id, study_date, study_day_int, block_number, block_start_mountain_calc, block_end_mountain_calc, A)) %>% 
   full_join(y = emi_w_blocks_v2,
-            by = join_by(mars_id, study_date, study_day_int, block_number, block_start_mountain, block_end_mountain, A))
+            by = join_by(mars_id, study_date, study_day_int, block_number, block_start_mountain_calc, block_end_mountain_calc, A))
 
 if(F){
 matched_2_dec_pts_v7 %>% count(A, entire_block_no_battery_data)
@@ -626,7 +627,7 @@ system_log_EMI_rands <- system_log_EMI_rands %>% mutate(random_selection_sysLog 
 # Join system log emi rands data to block level backbone
 systemlog_emi_blocks <- full_join(x = system_log_EMI_rands %>% mutate(in_syslog = T),
                                   y = cw_pt_date_blocks %>% mutate(in_blocks_cw = T),
-                                  by = join_by(mars_id, between("system_log_emi_rand_ts_mtn", block_start_mountain, block_end_mountain) ))
+                                  by = join_by(mars_id, between("system_log_emi_rand_ts_mtn", block_start_mountain_calc, block_end_mountain_calc) ))
 
 systemlog_emi_blocks %>% count(in_syslog, in_blocks_cw)
 
@@ -634,7 +635,7 @@ systemlog_emi_blocks %>% count(in_syslog, in_blocks_cw, is.na(A))
 
 systemlog_emi_blocks %>% group_by(mars_id) %>% 
   filter(any(in_blocks_cw)) %>% 
-  filter(in_blocks_cw | between(system_log_emi_rand_ts_mtn, min(block_start_mountain, na.rm = T), max(block_end_mountain, na.rm = T))) %>% 
+  filter(in_blocks_cw | between(system_log_emi_rand_ts_mtn, min(block_start_mountain_calc, na.rm = T), max(block_end_mountain_calc, na.rm = T))) %>% 
   ungroup() %>% 
   count(in_syslog, in_blocks_cw, A)
 
@@ -669,7 +670,7 @@ systemlog_emi_blocks <- systemlog_emi_blocks %>%
 # Join to main dataset
 matched_2_dec_pts_v8 <- matched_2_dec_pts_v7 %>% 
   full_join(y = systemlog_emi_blocks, 
-            by = join_by(mars_id, study_date, study_day_int, block_number, block_start_mountain, block_end_mountain, A))
+            by = join_by(mars_id, study_date, study_day_int, block_number, block_start_mountain_calc, block_end_mountain_calc, A))
 
 # stats
 matched_2_dec_pts_v8 %>% filter(is.na(A)) %>% count(is.na(system_log_emi_randomization), condition_lgcl, entire_block_no_battery_data)
@@ -684,10 +685,10 @@ system_log_v2 <- system_log %>% rename(mars_id = participant_id) %>% mutate(syst
 
 system_log_joined_2_blocks <- system_log_v2 %>% 
   right_join(y = cw_pt_date_blocks,
-             by = join_by(mars_id, between(x$system_log_hrts_mtn, y$block_start_mountain, y$block_end_mountain))) 
+             by = join_by(mars_id, between(x$system_log_hrts_mtn, y$block_start_mountain_calc, y$block_end_mountain_calc))) 
 
 block_system_log <-  system_log_joined_2_blocks %>% 
-  group_by(mars_id, study_date, study_day_int, block_number, block_start_mountain, block_end_mountain, A) %>% 
+  group_by(mars_id, study_date, study_day_int, block_number, block_start_mountain_calc, block_end_mountain_calc, A) %>% 
   summarise(n_syslog_records = sum(!is.na(system_log_hrts_mtn)),
             any_syslog_records = n_syslog_records > 0,
             ten_plus_syslog_records = n_syslog_records >= 10,
@@ -698,7 +699,7 @@ block_system_log <-  system_log_joined_2_blocks %>%
 
 matched_2_dec_pts_v8 <- matched_2_dec_pts_v8 %>% 
   left_join(y = block_system_log,
-            by = join_by(mars_id, study_date, study_day_int, block_number, block_start_mountain, block_end_mountain, A))
+            by = join_by(mars_id, study_date, study_day_int, block_number, block_start_mountain_calc, block_end_mountain_calc, A))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # STEP 3. Process for Final Summary Indicators ----
@@ -820,7 +821,7 @@ matched_2_dec_pts_v11 <- matched_2_dec_pts_v10 %>%
       !is.na(A) ~ NA_character_,        # no values for blocks with an EMI randomization
       # all below are for non-randomized EMI
       after_withdraw_date ~ "After participant withdrew",   # block occurred after the date when the participant withdrew 
-      !block_start_valid | !block_end_valid ~ "Block 1 on study day was programmed to start after 10am",    # block could never even begin due to the next day's block 1 starting
+      !block_start_valid | !block_end_valid ~ "Block 0 on study day was programmed to start after 10am",    # block could never even begin due to the next day's block 1 starting
       !last_condition_emi_report ~ "Driving",      # all records of EMI conditions being false coincided with driving - not privacy mode
       any_error | last_condition_emi_report ~ "Software error",       # log file recorded an error associated to this EMI block or the conditions log indicated conditions were true but EMI rand was not recorded and used
       battery_status_simple == "No Data - Entire Block" ~ "No log data and no battery data",  
@@ -842,7 +843,7 @@ saveRDS(matched_2_dec_pts_v11,
         file = file.path(path_to_staged, "matched_2_dec_pts_full_metadata.RDS"))
 
 matched_2_dec_pts_summarized_metadata <- matched_2_dec_pts_v11 %>%
-  select(all_of(colnames(matched_2_dec_pts)), study_day_int, study_date, olson_calc, block0_RECALC_start_mountain, block_start_mountain, block_end_mountain, block_start_valid, block_end_valid,
+  select(all_of(colnames(matched_2_dec_pts)), study_day_int, study_date, olson_calc, block0_RECALC_start_mountain, block_start_mountain_calc, block_end_mountain_calc, block_start_valid, block_end_valid,
          battery_status, battery_status_simple, last_condition_emi_report, after_withdraw_date, any_error, no_battery_time_hours_categ, emi_non_rand_summary)
 
 saveRDS(matched_2_dec_pts_summarized_metadata,
