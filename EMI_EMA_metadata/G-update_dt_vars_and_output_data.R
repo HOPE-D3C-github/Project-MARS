@@ -11,10 +11,12 @@ library(lubridate)
 
 source('paths.R')
 
-matched_2_dec_pts_summ_metadata <- readRDS(file.path(path_to_staged, 'matched_2_dec_pts_summarized_metadata_plus_EMA.RDS'))  # contains date time vars
-ema_responses <- readRDS(file.path(path_to_input_data_from_jamie, 'dat_conventional_long_format_ema_responses.rds')) # contains date time vars
 ema_questions <- readRDS(file.path(path_to_input_data_from_jamie, 'dat_master_ema_questions.rds')) # does not contain date time vars
+ema_response_options <- readRDS(file.path(path_to_input_data_from_jamie, "dat_master_ema_response_options.rds")) # does not contain date time vars
+matched_2_dec_pts_summ_metadata <- readRDS(file.path(path_to_staged, 'matched_2_dec_pts_summarized_metadata_plus_EMA.RDS'))  # contains date time vars
+all_v1_visit_dates <- readRDS(file.path(path_to_input_data_from_jamie, "dat_visit_dates.rds")) # does not contain date time vars
 v1_visit_dates <- readRDS(file.path(path_to_input_data_from_jamie, 'dat_visit_dates_V1_only.rds')) # does not contain date time vars
+mars_ids_excluded <- data.frame(mars_id = readRDS(file.path(path_to_input_data_from_jamie, "mars_ids_excluded_from_all_analytic_datasets.rds"))) # does not contain date time vars
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Update datetime variables from Mountain to Local
@@ -43,30 +45,37 @@ convrt_mtn_dt_to_local <- function(dat, timezone){
   return(dat)
 }
 
-ema_responses_local <- convrt_mtn_dt_to_local(ema_responses, ema_responses$olson)
-
 matched_2_dec_pts_summ_metadata_local <- convrt_mtn_dt_to_local(matched_2_dec_pts_summ_metadata, matched_2_dec_pts_summ_metadata$olson_calc) # Need to bring forward olson from my code, since jamie's has gaps
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Output datasets
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-saveRDS(matched_2_dec_pts_summ_metadata_local, 
-        file.path(path_to_outputs_4_analysis, "matched_2_dec_pts_summ_metadata_local.RDS"))
-write_dta(matched_2_dec_pts_summ_metadata_local, 
-          file.path(path_to_outputs_4_analysis, "matched_2_dec_pts_summ_metadata_local.DTA"))
-
-saveRDS(ema_responses_local, 
-        file.path(path_to_outputs_4_analysis, "ema_responses_local.RDS"))
-write_dta(ema_responses_local, 
-          file.path(path_to_outputs_4_analysis, "ema_responses_local.DTA"))
+saveRDS(all_v1_visit_dates, 
+        file.path(path_to_outputs_4_analysis, "all_v1_visit_dates.RDS"))
+write_dta(all_v1_visit_dates, 
+          file.path(path_to_outputs_4_analysis, "all_v1_visit_dates.DTA"))
 
 saveRDS(ema_questions, 
         file.path(path_to_outputs_4_analysis, "ema_questions.RDS"))
 write_dta(ema_questions, 
           file.path(path_to_outputs_4_analysis, "ema_questions.DTA"))
 
+saveRDS(ema_response_options, 
+        file.path(path_to_outputs_4_analysis, "ema_response_options.RDS"))
+write_dta(ema_response_options, 
+          file.path(path_to_outputs_4_analysis, "ema_response_options.DTA"))
+
+saveRDS(mars_ids_excluded, 
+        file.path(path_to_outputs_4_analysis, "mars_ids_excluded.RDS"))
+write_dta(mars_ids_excluded, 
+          file.path(path_to_outputs_4_analysis, "mars_ids_excluded.DTA"))
+
+saveRDS(matched_2_dec_pts_summ_metadata_local, 
+        file.path(path_to_outputs_4_analysis, "matched_2_dec_pts_summ_metadata_local.RDS"))
+write_dta(matched_2_dec_pts_summ_metadata_local, 
+          file.path(path_to_outputs_4_analysis, "matched_2_dec_pts_summ_metadata_local.DTA"))
+
 saveRDS(v1_visit_dates, 
         file.path(path_to_outputs_4_analysis, "v1_visit_dates.RDS"))
 write_dta(v1_visit_dates, 
           file.path(path_to_outputs_4_analysis, "v1_visit_dates.DTA"))
-

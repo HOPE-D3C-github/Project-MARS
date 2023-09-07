@@ -87,7 +87,7 @@ ema_report <- ema_report %>% rename(mars_id = participant_id) %>% mutate(timesta
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 dat_undeliverd_w_cond <- dat_undeliverd %>% mutate(in_dat = T) %>% 
   left_join(y = conditions_wide %>% mutate(in_cond = T),
-            by = join_by(mars_id, between(y$cond_hrts_mountain, x$block_start_mountain, x$block_end_mountain)))
+            by = join_by(mars_id, between(y$cond_hrts_mountain, x$block_start_mountain_calc, x$block_end_mountain_calc)))
 
 dat_undeliverd_w_cond %>% count(in_dat, in_cond)
 
@@ -120,7 +120,7 @@ dat_undeliverd_w_cond_v2 %>% count(status_survey_ema, condition_summ)
 # # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # dat_undeliverd_w_cond_emarpt <- dat_undeliverd_w_cond_v2 %>% 
 #   left_join(y = ema_report %>% mutate(in_emarpt = T),
-#             by = join_by(mars_id, between(y$timestamp_try_mountain, x$block_start_mountain, x$block_end_mountain)))
+#             by = join_by(mars_id, between(y$timestamp_try_mountain, x$block_start_mountain_calc, x$block_end_mountain_calc)))
 #   
 # dat_undeliverd_w_cond_emarpt %>% count(condition_summ, condition, privacy_off, not_driving)
 # # looking at the count above, it is clear that the EMA report does not include any information not included in the conditions log. 
