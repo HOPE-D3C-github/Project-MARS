@@ -1,3 +1,12 @@
+# Questionnaire Curation code to be ignored until finalized
+RedCap_data/
+
+# paths.R file
+paths.R
+
+# .png files
+*.png
+
 # History files
 .Rhistory
 .Rapp.history
@@ -47,6 +56,3 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
-
-# .png files
-*.png
