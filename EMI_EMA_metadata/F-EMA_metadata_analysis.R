@@ -103,11 +103,11 @@ dat_undeliverd_w_cond_v2 <- dat_undeliverd_w_cond %>%
   select(-c(condition, is_driving, is_privacy_on)) %>% 
   ungroup() %>% 
   mutate(condition_summ = case_when(
-    is.na(any_condition_false) ~ "no condition data",
-    any_is_driving & any_is_privacy_on ~ "driving and privacy mode",
-    any_is_driving ~ "driving",
-    any_is_privacy_on ~ "privacy mode",
-    !any_condition_false ~ "clear",
+    is.na(any_condition_false) ~ "No Condition Data",
+    any_is_driving & any_is_privacy_on ~ "Driving and Privacy Mode",
+    any_is_driving ~ "Driving",
+    any_is_privacy_on ~ "Privacy Mode",
+    !any_condition_false ~ "Software Error",
     T ~ NA_character_
   ))
 
@@ -131,7 +131,7 @@ dat_undeliverd_w_cond_v2 %>% count(status_survey_ema, condition_summ)
 # Step 1.3  Investigate current metadata summary ----
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 dat_undeliverd_w_cond_v2 %>% count(condition_summ)
-dat_undeliverd_w_cond_v2 %>% filter(condition_summ == "no condition data") %>% count(condition_summ, battery_status_simple) %>% mutate(prop = n/sum(n))
+dat_undeliverd_w_cond_v2 %>% filter(condition_summ == "No Condition Data") %>% count(condition_summ, battery_status_simple) %>% mutate(prop = n/sum(n))
 
 # The overwhelming majority of undelivered EMAs have no conditions data
 # 27% of those have some missing battery data in the block
@@ -152,9 +152,9 @@ dat_undeliverd_w_cond_bat <- dat_undeliverd_w_cond_v2 %>%
 
 
 dat_undeliverd_w_cond_bat %>% count(condition_summ, battery_status_at_ema)
-dat_undeliverd_w_cond_bat %>% filter(condition_summ == 'no condition data') %>% count(condition_summ, battery_status_at_ema)
+dat_undeliverd_w_cond_bat %>% filter(condition_summ == 'No Condition Data') %>% count(condition_summ, battery_status_at_ema)
 
-# We do see cases where there was no battery data and no conditions data, but a majority are no condition data and sufficient battery
+# We do see cases where there was no battery data and no conditions data, but a majority are No Condition Data and sufficient battery
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Step 2. Process the undelivered EMA metadata dataset
@@ -163,9 +163,9 @@ dat_undeliverd_w_cond_bat %>% count(condition_summ, battery_status_at_ema)
 
 dat_undeliverd_v2 <- dat_undeliverd_w_cond_bat %>% 
   mutate(undel_ema_rsn = case_when(
-    condition_summ != "no condition data" ~ condition_summ,
-    battery_status_at_ema == "No Battery Data" ~ "no battery data at time of ema",
-    T ~ "Unknown"
+    condition_summ != "No Condition Data" ~ condition_summ,
+    battery_status_at_ema == "No Battery Data" ~ "No Battery Data at Time of EMA",
+    T ~ "Undetermined"
   ))
 
 dat_undeliverd_v2 %>% count(condition_summ, battery_status_at_ema, undel_ema_rsn)
@@ -173,7 +173,7 @@ dat_undeliverd_v2 %>% count(condition_summ, battery_status_at_ema, undel_ema_rsn
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Step 2. Process the undelivered EMA metadata dataset ----
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-dat_delivered_or_reconciled_v2 <- dat_delivered_or_reconciled %>% mutate(undel_ema_rsn = ifelse(is.na(A), "no EMI randomization", NA_character_))
+dat_delivered_or_reconciled_v2 <- dat_delivered_or_reconciled %>% mutate(undel_ema_rsn = ifelse(is.na(A), "No EMI Randomization", NA_character_))
 
 dat_delivered_or_reconciled_v2 %>% count(is.na(A), status_survey_ema, undel_ema_rsn)
 
@@ -188,7 +188,13 @@ dat_main_v2 <- dat_main_v2 %>%
     T ~ "undelivered"
   ))
 
-dat_main_v2 %>% count(!is.na(A), status_survey_ema, undel_ema_rsn)
+if(F){dat_main_v2 %>% count(!is.na(A), status_survey_ema, undel_ema_rsn)
+dat_main_v2 %>% count(undel_ema_rsn)
+}
+
+dat_main_v2$undel_ema_rsn <- factor(dat_main_v2$undel_ema_rsn,
+                                    levels = c("No EMI Randomization", "No Battery Data at Time of EMA", "Driving and Privacy Mode", 
+                                               "Driving", "Privacy Mode", "Software Error", "Undetermined"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Step 3. Save data ----

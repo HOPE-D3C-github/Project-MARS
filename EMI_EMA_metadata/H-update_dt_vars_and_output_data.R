@@ -17,6 +17,7 @@ matched_2_dec_pts_summ_metadata <- readRDS(file.path(path_to_staged, 'matched_2_
 all_v1_visit_dates <- readRDS(file.path(path_to_input_data_from_jamie, "dat_visit_dates.rds")) # does not contain date time vars
 v1_visit_dates <- readRDS(file.path(path_to_input_data_from_jamie, 'dat_visit_dates_V1_only.rds')) # does not contain date time vars
 mars_ids_excluded <- data.frame(mars_id = readRDS(file.path(path_to_input_data_from_jamie, "mars_ids_excluded_from_all_analytic_datasets.rds"))) # does not contain date time vars
+codebook <- readRDS(file.path(path_to_staged, "add_var_codebook.RDS"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Update datetime variables from Mountain to Local
@@ -79,3 +80,8 @@ saveRDS(v1_visit_dates,
         file.path(path_to_outputs_4_analysis, "v1_visit_dates.RDS"))
 write_dta(v1_visit_dates, 
           file.path(path_to_outputs_4_analysis, "v1_visit_dates.DTA"))
+
+saveRDS(codebook, 
+        file.path(path_to_outputs_4_analysis, "codebook_4_add_vars.RDS"))
+write_dta(codebook, 
+          file.path(path_to_outputs_4_analysis, "codebook_4_add_vars.DTA"))

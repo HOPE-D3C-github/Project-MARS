@@ -829,11 +829,16 @@ matched_2_dec_pts_v11 <- matched_2_dec_pts_v10 %>%
     )
   )
 
+matched_2_dec_pts_v11$emi_non_rand_summary <- factor(matched_2_dec_pts_v11$emi_non_rand_summary, 
+                                                     levels = c("After participant withdrew", "Block 0 on study day was programmed to start after 10am", 
+                                                                "Driving", "Software error", "No log data and no battery data", "Undetermined"))
+
+
 if(F){matched_2_dec_pts_v11 %>% count(is.na(A), emi_non_rand_summary)}
 
 
 
-if(F){matched_2_dec_pts_v11 %>% filter(is.na(A)) %>% count(emi_non_rand_summary) %>% mutate(percent_n = round(n/sum(n)*100, digits = 1)) %>% arrange(desc(n))}
+if(F){matched_2_dec_pts_v11 %>% filter(is.na(A)) %>% count(emi_non_rand_summary) %>% mutate(percent_n = round(n/sum(n)*100, digits = 1))}
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # STEP 5. Save Datasets ----

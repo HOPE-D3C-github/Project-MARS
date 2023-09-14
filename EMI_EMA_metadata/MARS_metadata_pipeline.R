@@ -26,6 +26,10 @@ rm(list=ls())
 source("F-EMA_metadata_analysis.R")
 rm(list=ls())
 
-# G. Update datetime variables and prep data for output
-source("G-update_dt_vars_and_output_data.R")
+# G. Extract New Variable Names for Additional Var Codebook
+source("G-create_codebook.R")
+rm(list=ls())
+
+# H. Update datetime variables and prep data for output
+source("H-update_dt_vars_and_output_data.R")
 rm(list=ls())
