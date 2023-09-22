@@ -31,7 +31,7 @@ write_csv(codebook_template,
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # STEP 4. Load Codebook for Read-in
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-codebook_unvalidated <- read_csv(file.path(path_to_staged, "add_var_codebook_4_read_in.csv"))
+codebook_unvalidated <- read_csv(file.path(path_to_other_input_data, "add_var_codebook_4_read_in.csv"))
 
 test1 <- test_that("Codebook contains the correct variable names. Update the read_in file if test fails.", {
   expect_equal(
